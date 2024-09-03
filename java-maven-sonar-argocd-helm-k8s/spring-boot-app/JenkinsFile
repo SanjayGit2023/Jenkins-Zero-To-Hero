@@ -42,3 +42,60 @@ pipeline {
             steps {
                 script {
                     // Add .gitignore to ignore build artifacts
+                    sh '''
+                        echo "# Ignore target directory" >> .gitignore
+                        echo "java-maven-sonar-argocd-helm-k8s/spring-boot-app/target/" >> .gitignore
+                        git add .gitignore
+                        git commit -m "Update .gitignore to ignore target directory"
+                    '''
+
+                    // Stage and commit only the deployment YAML file
+                    sh '''
+                        git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                        git commit -m "Update deployment image to version ${IMAGE_TAG}"
+                    '''
+                }
+            }
+        }
+
+        stage('Push Changes') {
+            steps {
+                script {
+                    // Push the changes to the remote repository
+                    sh 'git push origin main'
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Replace this with your actual deployment script/commands
+                    echo 'Deploying to Kubernetes...'
+                    // For example: sh 'kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                // Clean up after the build, if necessary
+                echo 'Cleaning up workspace...'
+            }
+        }
+
+        success {
+            script {
+                echo 'Pipeline completed successfully.'
+            }
+        }
+
+        failure {
+            script {
+                echo 'Pipeline failed.'
+            }
+        }
+    }
+}
