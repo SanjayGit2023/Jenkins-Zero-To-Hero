@@ -1,101 +1,68 @@
 pipeline {
-    agent {
-        docker {
-            image 'san21doc/maven-docker-agent:v1'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
-        }
+  agent {
+    docker {
+      image 'san21doc/maven-docker-agent:v1'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
     }
-
-    environment {
-        // Define any environment variables here if needed
-        IMAGE_TAG = "20"
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        sh 'echo passed'
+        //git branch: 'main', url: 'https://github.com/iam-veeramalla/Jenkins-Zero-To-Hero.git'
+      }
     }
-
-    stages {
-        stage('Checkout SCM') {
-            steps {
-                checkout scm
+    stage('Build and Test') {
+      steps {
+        sh 'ls -ltr'
+        // build the project and create a JAR file
+        sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
+      }
+    }
+    stage('Static Code Analysis') {
+      environment {
+        SONAR_URL = "http://3.82.92.119:9000"
+      }
+      steps {
+        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+        }
+      }
+    }
+    stage('Build and Push Docker Image') {
+      environment {
+        DOCKER_IMAGE = "san21doc/mydemoultimate-cicd:${BUILD_NUMBER}"
+        // DOCKERFILE_LOCATION = "java-maven-sonar-argocd-helm-k8s/spring-boot-app/Dockerfile"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+      }
+      steps {
+        script {
+            sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
+            def dockerImage = docker.image("${DOCKER_IMAGE}")
+            docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
+                dockerImage.push()
             }
         }
-
-        stage('Build and Package') {
-            steps {
-                script {
-                    // Example Maven build command, replace with your actual build command
-                    sh 'mvn clean package'
-                }
-            }
+      }
+    }
+    stage('Update Deployment File') {
+        environment {
+            GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
+            GIT_USER_NAME = "SanjayGit2023"
         }
-
-        stage('Update Deployment YAML') {
-            steps {
-                script {
-                    // Replace the placeholder in the deployment YAML with the actual image tag
-                    sh "sed -i 's/replaceImageTag/${IMAGE_TAG}/g' java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml"
-                    // Display the updated file for verification
-                    sh 'cat java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml'
-                }
-            }
-        }
-
-        stage('Commit Changes') {
-            steps {
-                script {
-                    // Add .gitignore to ignore build artifacts
-                    sh '''
-                        echo "# Ignore target directory" >> .gitignore
-                        echo "java-maven-sonar-argocd-helm-k8s/spring-boot-app/target/" >> .gitignore
-                        git add .gitignore
-                        git commit -m "Update .gitignore to ignore target directory"
-                    '''
-
-                    // Stage and commit only the deployment YAML file
-                    sh '''
-                        git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                        git commit -m "Update deployment image to version ${IMAGE_TAG}"
-                    '''
-                }
-            }
-        }
-
-        stage('Push Changes') {
-            steps {
-                script {
-                    // Push the changes to the remote repository
-                    sh 'git push origin main'
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    // Replace this with your actual deployment script/commands
-                    echo 'Deploying to Kubernetes...'
-                    // For example: sh 'kubectl apply -f java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml'
-                }
+        steps {
+            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                sh '''
+                    git config user.email "abhishek.xyz@gmail.com"
+                    git config user.name "Abhishek Veeramalla"
+                    BUILD_NUMBER=${BUILD_NUMBER}
+                    sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+                    git add .
+                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                '''
             }
         }
     }
-
-    post {
-        always {
-            script {
-                // Clean up after the build, if necessary
-                echo 'Cleaning up workspace...'
-            }
-        }
-
-        success {
-            script {
-                echo 'Pipeline completed successfully.'
-            }
-        }
-
-        failure {
-            script {
-                echo 'Pipeline failed.'
-            }
-        }
-    }
+  }
 }
