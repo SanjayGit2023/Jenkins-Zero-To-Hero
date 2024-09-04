@@ -4,6 +4,7 @@ metadata:
   name: spring-boot-app
   labels:
     app: spring-boot-app
+  namespace: default  # Add this line
 spec:
   replicas: 2
   selector:
