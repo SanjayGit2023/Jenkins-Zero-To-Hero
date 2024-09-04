@@ -2,12 +2,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: spring-boot-app-service
+  labels:
+    app: spring-boot-app
+  namespace: default  # Add this line
 spec:
   type: NodePort
-  ports:
-    - name: http
-      port: 80
-      targetPort: 8080
-      protocol: TCP
   selector:
     app: spring-boot-app
+  ports:
+    - protocol: TCP
+      port: 8080       # Port on which the service will be exposed inside the cluster
+      targetPort: 8080 # Port on which the container is listening
+      nodePort: 30007  # NodePort range is usually 30000-32767
