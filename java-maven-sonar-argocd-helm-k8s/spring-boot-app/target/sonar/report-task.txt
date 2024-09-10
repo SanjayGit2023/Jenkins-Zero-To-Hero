@@ -2,5 +2,5 @@ projectKey=com.abhishek:spring-boot-demo
 serverUrl=http://3.93.65.72:9000
 serverVersion=9.4.0.54424
 dashboardUrl=http://3.93.65.72:9000/dashboard?id=com.abhishek%3Aspring-boot-demo
-ceTaskId=AZHdQgxNNBK5JDH041es
-ceTaskUrl=http://3.93.65.72:9000/api/ce/task?id=AZHdQgxNNBK5JDH041es
+ceTaskId=AZHdQuKeNBK5JDH041et
+ceTaskUrl=http://3.93.65.72:9000/api/ce/task?id=AZHdQuKeNBK5JDH041et
